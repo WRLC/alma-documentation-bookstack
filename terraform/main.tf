@@ -219,8 +219,6 @@ resource "azurerm_linux_web_app" "bookstack" {
     MAIL_FROM                   = var.mail_from
     MAIL_HOST                   = "${data.azurerm_communication_service.existing.name}.azurecomm.net"
     MAIL_PORT                   = "587"
-    MAIL_USERNAME               = azuread_application.bookstack_smtp.client_id
-    MAIL_PASSWORD               = azuread_application_password.bookstack_smtp.value
     MAIL_ENCRYPTION             = "tls"
 
     # File Upload Settings
@@ -286,45 +284,6 @@ resource "azurerm_linux_web_app" "bookstack" {
   }
 }
 
-# App Registration for ACS SMTP Authentication
-resource "azuread_application" "bookstack_smtp" {
-  display_name = "${local.service_name}-smtp"
-  owners       = [data.azuread_client_config.current.object_id]
-
-  required_resource_access {
-    resource_app_id = "1fd5118e-2576-4263-8130-9503064c837a" # Azure Communication Services
-
-    resource_access {
-      id   = "b3ac9d85-3307-4454-8680-e816b4c82e31" # Send.Email
-      type = "Role"
-    }
-  }
-}
-
-# Service Principal for the App Registration
-resource "azuread_service_principal" "bookstack_smtp" {
-  client_id                    = azuread_application.bookstack_smtp.client_id
-  app_role_assignment_required = false
-  owners                       = [data.azuread_client_config.current.object_id]
-}
-
-# Client Secret for SMTP Authentication
-resource "azuread_application_password" "bookstack_smtp" {
-  application_id = azuread_application.bookstack_smtp.id
-  display_name   = "SMTP Authentication"
-  end_date       = "2025-12-31T23:59:59Z"
-}
-
-# Role Assignment - Grant ACS permissions to the service principal
-resource "azurerm_role_assignment" "acs_contributor" {
-  scope                = data.azurerm_communication_service.existing.id
-  role_definition_name = "Contributor"
-  principal_id         = azuread_service_principal.bookstack_smtp.object_id
-}
-
-# Data source for current Azure AD config
-data "azuread_client_config" "current" {}
-
 # Deployment Slot - Stage
 resource "azurerm_linux_web_app_slot" "stage" {
   name           = "stage"
@@ -368,8 +327,6 @@ resource "azurerm_linux_web_app_slot" "stage" {
     MAIL_FROM                   = var.mail_from
     MAIL_HOST                   = "${data.azurerm_communication_service.existing.name}.azurecomm.net"
     MAIL_PORT                   = "587"
-    MAIL_USERNAME               = azuread_application.bookstack_smtp.client_id
-    MAIL_PASSWORD               = azuread_application_password.bookstack_smtp.value
     MAIL_ENCRYPTION             = "tls"
 
     # File Upload Settings
