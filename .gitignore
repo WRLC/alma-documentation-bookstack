@@ -46,3 +46,4 @@ terraform/*.tfplan.*
 terraform/.terragrunt-cache/
 terraform/crash.log
 terraform/crash.*.log
+terraform/tfplan
