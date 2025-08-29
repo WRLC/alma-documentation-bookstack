@@ -102,7 +102,7 @@ jobs:
       - name: Deploy source files to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ needs.terraform.outputs.function_app_name }}
+          app-name: ${{ needs.terraform.outputs.app_service_name }}
           slot-name: 'stage'
           package: .
 
