@@ -174,20 +174,3 @@ output "stage_connection_info" {
     slot_name      = "stage"
   }
 }
-
-# App Registration for SMTP
-output "smtp_app_registration_id" {
-  description = "Client ID of the App Registration for SMTP"
-  value       = azuread_application.bookstack_smtp.client_id
-}
-
-output "smtp_app_registration_name" {
-  description = "Display name of the App Registration for SMTP"
-  value       = azuread_application.bookstack_smtp.display_name
-}
-
-output "smtp_client_secret" {
-  description = "Client secret for SMTP authentication"
-  value       = azuread_application_password.bookstack_smtp.value
-  sensitive   = true
-}
