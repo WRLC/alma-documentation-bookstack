@@ -79,8 +79,8 @@ jobs:
         id: get_outputs
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          APP_NAME=$(terraform output -raw function_app_name)
-          echo "function_app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          APP_NAME=$(terraform output -raw app_service_name)
+          echo "app_service_name=$APP_NAME" >> "$GITHUB_OUTPUT"
 
   deploy-stage:
     name: Deploy to Stage
