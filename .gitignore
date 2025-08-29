@@ -33,3 +33,16 @@ phpstan.neon
 esbuild-meta.json
 .phpactor.json
 /*.zip
+
+# Terraform files
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+terraform/backend.hcl
+terraform/*.tfplan
+terraform/*.tfplan.*
+terraform/.terragrunt-cache/
+terraform/crash.log
+terraform/crash.*.log
