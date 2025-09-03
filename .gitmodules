@@ -1,0 +1,3 @@
+[submodule "BookStack"]
+	path = BookStack
+	url = https://github.com/BookStackApp/BookStack.git
