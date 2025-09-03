@@ -220,7 +220,7 @@ resource "azurerm_linux_web_app_slot" "stage" {
   app_settings = {
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
     "APP_KEY"                               = var.bookstack_app_key
-    "APP_URL"                               = ""
+    "APP_URL"                               = "https://alma-documentation-bookstack-stage.azurewebsites.net/"
     "DB_HOST"                               = data.azurerm_mysql_flexible_server.existing.fqdn
     "DB_DATABASE"                           = azurerm_mysql_flexible_database.stage.name
     "DB_USERNAME"                           = mysql_user.stage.user
