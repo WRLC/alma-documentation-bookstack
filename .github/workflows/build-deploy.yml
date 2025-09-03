@@ -1,0 +1,77 @@
+#file: noinspection UndefinedAction,UndefinedParamsPresent
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, json, tokenizer, openssl, pdo, mysql, gd
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: BookStack/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('BookStack/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: |
+          cd BookStack
+          composer install --optimize-autoloader --no-dev
+
+      - name: Create deployment artifact
+        run: |
+          tar -czf bookstack-app.tar.gz BookStack/ start.sh nginx.conf
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bookstack-app
+          path: bookstack-app.tar.gz
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bookstack-app
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.ARM_CLIENT_ID }}
+          tenant-id: ${{ secrets.ARM_TENANT_ID }}
+          subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure App Service Staging
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: alma-documentation-bookstack
+          slot-name: stage
+          package: bookstack-app.tar.gz

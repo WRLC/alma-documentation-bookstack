@@ -151,15 +151,16 @@ resource "azurerm_linux_web_app" "main" {
     mount_path   = "/home/site/wwwroot/BookStack/storage"
   }
 
-  identity {
-    type = "SystemAssigned"
-  }
-
   site_config {
     always_on = true
     application_stack {
       php_version = "8.4"
     }
+    app_command_line = "cd /home/site/wwwroot && ./startup.sh"
+  }
+
+  tags = {
+    "hidden-link: /app-insights-resource-id" = "/subscriptions/c6b4ce21-1b32-4550-906b-5ab71cdc6337/resourceGroups/defaultresourcegroup-eus2/providers/microsoft.insights/components/alma-documentation-bookstack-insights"
   }
 
   app_settings = {
@@ -180,6 +181,7 @@ resource "azurerm_linux_web_app" "main" {
     "MAIL_ENCRYPTION"                       = "tls"
     "FILE_UPLOAD_SIZE_LIMIT"                = 256
     "ALLOWED_IFRAME_SOURCES"                = var.allowed_iframe_source
+    "WEBSITE_RUN_FROM_PACKAGE"              = "1"
   }
 
   sticky_settings {
@@ -207,15 +209,12 @@ resource "azurerm_linux_web_app_slot" "stage" {
     mount_path   = "/home/site/wwwroot/BookStack/storage"
   }
 
-  identity {
-    type = "SystemAssigned"
-  }
-
   site_config {
     always_on = true
     application_stack {
       php_version = "8.4"
     }
+    app_command_line = "cd /home/site/wwwroot && ./startup.sh"
   }
 
   app_settings = {
@@ -236,5 +235,6 @@ resource "azurerm_linux_web_app_slot" "stage" {
     "MAIL_ENCRYPTION"                       = "tls"
     "FILE_UPLOAD_SIZE_LIMIT"                = 256
     "ALLOWED_IFRAME_SOURCES"                = var.allowed_iframe_source
+    "WEBSITE_RUN_FROM_PACKAGE"              = "1"
   }
 }
