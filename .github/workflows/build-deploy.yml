@@ -70,9 +70,14 @@ jobs:
           tenant-id: ${{ secrets.ARM_TENANT_ID }}
           subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
 
+      - name: Extract deployment package
+        run: |
+          unzip -q bookstack-app.zip
+          rm bookstack-app.zip
+
       - name: Deploy to Azure App Service Staging
         uses: azure/webapps-deploy@v3
         with:
           app-name: alma-documentation-bookstack
           slot-name: stage
-          package: ./bookstack-app.zip
+          package: .
