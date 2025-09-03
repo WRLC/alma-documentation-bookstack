@@ -16,3 +16,7 @@ php artisan migrate --force
 
 # Clear caches
 php artisan optimize:clear
+
+# Set proper permissions for storage (needed after each restart)
+chown -R www-data:www-data storage/app/public/uploads
+chmod -R 775 storage/app/public/uploads
