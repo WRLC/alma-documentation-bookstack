@@ -41,13 +41,13 @@ jobs:
 
       - name: Create deployment artifact
         run: |
-          tar -czf bookstack-app.tar.gz BookStack/ startup.sh nginx.conf
+          zip -r bookstack-app.zip BookStack/ startup.sh nginx.conf
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: bookstack-app
-          path: bookstack-app.tar.gz
+          path: bookstack-app.zip
           retention-days: 7
 
   deploy:
@@ -75,4 +75,4 @@ jobs:
         with:
           app-name: alma-documentation-bookstack
           slot-name: stage
-          package: ./bookstack-app.tar.gz
+          package: ./bookstack-app.zip
