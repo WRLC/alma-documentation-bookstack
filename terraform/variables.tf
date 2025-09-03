@@ -70,3 +70,13 @@ variable "allowed_iframe_source" {
   type = string
   description = "Allowed domain sources for iframes"
 }
+
+variable "app_url" {
+  type = string
+  default = "The URL for the production application"
+}
+
+variable "stage_app_url" {
+  type = string
+  description = "The URL for the staging application"
+}

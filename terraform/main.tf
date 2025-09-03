@@ -159,6 +159,8 @@ resource "azurerm_linux_web_app" "main" {
     app_command_line = "cd /home/site/wwwroot && ./startup.sh"
   }
 
+  https_only = true
+
   tags = {
     "hidden-link: /app-insights-resource-id" = "/subscriptions/c6b4ce21-1b32-4550-906b-5ab71cdc6337/resourceGroups/defaultresourcegroup-eus2/providers/microsoft.insights/components/alma-documentation-bookstack-insights"
   }
@@ -166,7 +168,7 @@ resource "azurerm_linux_web_app" "main" {
   app_settings = {
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
     "APP_KEY"                               = var.bookstack_app_key
-    "APP_URL"                               = ""
+    "APP_URL"                               = var.app_url
     "DB_HOST"                               = data.azurerm_mysql_flexible_server.existing.fqdn
     "DB_DATABASE"                           = azurerm_mysql_flexible_database.prod.name
     "DB_USERNAME"                           = mysql_user.prod.user
@@ -217,10 +219,16 @@ resource "azurerm_linux_web_app_slot" "stage" {
     app_command_line = "cd /home/site/wwwroot && ./startup.sh"
   }
 
+  https_only = true
+
+  tags = {
+    "hidden-link: /app-insights-resource-id" = "/subscriptions/c6b4ce21-1b32-4550-906b-5ab71cdc6337/resourceGroups/defaultresourcegroup-eus2/providers/microsoft.insights/components/alma-documentation-bookstack-insights"
+  }
+
   app_settings = {
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
     "APP_KEY"                               = var.bookstack_app_key
-    "APP_URL"                               = "https://alma-documentation-bookstack-stage.azurewebsites.net/"
+    "APP_URL"                               = var.stage_app_url
     "DB_HOST"                               = data.azurerm_mysql_flexible_server.existing.fqdn
     "DB_DATABASE"                           = azurerm_mysql_flexible_database.stage.name
     "DB_USERNAME"                           = mysql_user.stage.user
