@@ -61,6 +61,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: bookstack-app
+          path: .
 
       - name: Azure Login
         uses: azure/login@v2
@@ -74,4 +75,4 @@ jobs:
         with:
           app-name: alma-documentation-bookstack
           slot-name: stage
-          package: bookstack-app.tar.gz
+          package: ./bookstack-app.tar.gz
