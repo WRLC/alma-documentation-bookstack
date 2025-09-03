@@ -41,7 +41,7 @@ jobs:
 
       - name: Create deployment artifact
         run: |
-          tar -czf bookstack-app.tar.gz BookStack/ start.sh nginx.conf
+          tar -czf bookstack-app.tar.gz BookStack/ startup.sh nginx.conf
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
