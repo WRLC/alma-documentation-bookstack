@@ -30,6 +30,7 @@ env:
   TF_VAR_allowed_iframe_source: ${{ secrets.ALLOWED_IFRAME_SOURCE }}
   TF_VAR_app_url: ${{ secrets.APP_URL }}
   TF_VAR_stage_app_url: ${{ secrets.STAGE_APP_URL }}
+  TF_WORKING_DIR: ./terraform
 
 jobs:
   terraform:
