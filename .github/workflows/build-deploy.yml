@@ -9,9 +9,85 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC: true
+  TF_VAR_azure_service_plan_name: ${{ secrets.AZURE_SERVICE_PLAN_NAME }}
+  TF_VAR_azure_service_plan_rg_name: ${{ secrets.AZURE_SERVICE_PLAN_RG_NAME }}
+  TF_VAR_azure_mysql_flexible_server_name: ${{ secrets.AZURE_MYSQL_FLEXIBLE_SERVER_NAME }}
+  TF_VAR_azure_mysql_flexible_server_rg_name: ${{ secrets.AZURE_MYSQL_FLEXIBLE_SERVER_RG_NAME }}
+  TF_VAR_azure_log_analytics_workspace_name: ${{ secrets.AZURE_LOG_ANALYTICS_WORKSPACE_NAME }}
+  TF_VAR_azure_log_analytics_workspace_rg_name: ${{ secrets.AZURE_LOG_ANALYTICS_WORKSPACE_RG_NAME }}
+  TF_VAR_mysql_admin_username: ${{ secrets.MYSQL_ADMIN_USERNAME }}
+  TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
+  TF_VAR_bookstack_app_key: ${{ secrets.BOOKSTACK_APP_KEY }}
+  TF_VAR_smtp_username: ${{ secrets.SMTP_USERNAME }}
+  TF_VAR_smtp_password: ${{ secrets.SMTP_PASSWORD }}
+  TF_VAR_mail_from: ${{ secrets.MAIL_FROM }}
+  TF_VAR_mail_from_name: ${{ secrets.MAIL_FROM_NAME }}
+  TF_VAR_allowed_iframe_source: ${{ secrets.ALLOWED_IFRAME_SOURCE }}
+  TF_VAR_app_url: ${{ secrets.APP_URL }}
+  TF_VAR_stage_app_url: ${{ secrets.STAGE_APP_URL }}
+
 jobs:
-  build:
+  terraform:
+    name: Terraform
     runs-on: ubuntu-latest
+    outputs:
+      app_service_name: ${{ steps.get_outputs.outputs.app_service_name }}
+      app_deploy_slot_name: ${{ steps.get_outputs.outputs.app_deploy_slot_name }}
+      app_php_version: ${{ steps.get_outputs.outputs.app_php_version }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ env.ARM_TENANT_ID }}
+          subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_SA }}" \
+            -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${{ secrets.TF_STATE_KEY }}"
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve
+
+      - name: Get Terraform Outputs
+        id: get_outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          APP_SERVICE_NAME=$(terraform output -raw app_service_name)
+          DEPLOY_SLOT_NAME=$(terraform output -raw app_deploy_slot_name)
+          PHP_VERSION=$(terraform output -raw app_php_version)
+          
+          echo "app_service_name=$APP_SERVICE_NAME" >> "$GITHUB_OUTPUT"
+          echo "app_deploy_slot_name=$DEPLOY_SLOT_NAME" >> "$GITHUB_OUTPUT"
+          echo "app_php_version=$PHP_VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: terraform
+    env:
+      PHP_VERSION: ${{ needs.terraform.outputs.app_php_version }}
+      APP_SERVICE_NAME: ${{ needs.terraform.outputs.app_service_name }}
     
     steps:
       - name: Checkout code
@@ -22,7 +98,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, xml, ctype, json, tokenizer, openssl, pdo, mysql, gd
           coverage: none
 
@@ -41,43 +117,47 @@ jobs:
 
       - name: Create deployment artifact
         run: |
-          zip -r bookstack-app.zip BookStack/ startup.sh nginx.conf
+          zip -r ${{ env.APP_SERVICE_NAME }}.zip BookStack/ startup.sh nginx.conf
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bookstack-app
-          path: bookstack-app.zip
+          name: ${{ env.APP_SERVICE_NAME }}
+          path: ${{ env.APP_SERVICE_NAME }}.zip
           retention-days: 7
 
   deploy:
-    needs: build
+    name: Deploy to Azure Stage
     runs-on: ubuntu-latest
+    needs: [terraform, build]
     if: github.ref == 'refs/heads/main'
     environment: staging
+    env:
+      APP_SERVICE_NAME: ${{ needs.terraform.outputs.app_service_name }}
+      DEPLOY_SLOT_NAME: ${{ needs.terraform.outputs.app_deploy_slot_name }}
     
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: bookstack-app
+          name: ${{ env.APP_SERVICE_NAME }}
           path: .
+
+      - name: Extract deployment package
+        run: |
+          unzip -q ${{ env.APP_SERVICE_NAME }}.zip
+          rm ${{ env.APP_SERVICE_NAME }}.zip
 
       - name: Azure Login
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.ARM_CLIENT_ID }}
-          tenant-id: ${{ secrets.ARM_TENANT_ID }}
-          subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-
-      - name: Extract deployment package
-        run: |
-          unzip -q bookstack-app.zip
-          rm bookstack-app.zip
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ env.ARM_TENANT_ID }}
+          subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
 
       - name: Deploy to Azure App Service Staging
         uses: azure/webapps-deploy@v3
         with:
-          app-name: alma-documentation-bookstack
-          slot-name: stage
+          app-name: ${{ env.APP_SERVICE_NAME }}
+          slot-name: ${{ env.DEPLOY_SLOT_NAME }}
           package: .
