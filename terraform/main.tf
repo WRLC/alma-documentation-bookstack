@@ -181,8 +181,6 @@ resource "azurerm_linux_web_app" "main" {
     "MAIL_USERNAME"                         = var.smtp_username
     "MAIL_PASSWORD"                         = var.smtp_password
     "MAIL_ENCRYPTION"                       = "tls"
-    "STORAGE_TYPE"                          = "local_secure"
-    "STORAGE_URL"                           = "/uploads"
     "FILE_UPLOAD_SIZE_LIMIT"                = 256
     "ALLOWED_IFRAME_SOURCES"                = var.allowed_iframe_source
     "WEBSITE_RUN_FROM_PACKAGE"              = "1"
@@ -243,8 +241,6 @@ resource "azurerm_linux_web_app_slot" "stage" {
     "MAIL_USERNAME"                         = var.smtp_username
     "MAIL_PASSWORD"                         = var.smtp_password
     "MAIL_ENCRYPTION"                       = "tls"
-    "STORAGE_TYPE"                          = "local_secure"
-    "STORAGE_URL"                           = "/uploads"
     "FILE_UPLOAD_SIZE_LIMIT"                = 256
     "ALLOWED_IFRAME_SOURCES"                = var.allowed_iframe_source
     "WEBSITE_RUN_FROM_PACKAGE"              = "1"
