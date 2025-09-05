@@ -8,11 +8,17 @@
 set -e
 
 TFVARS_FILE="terraform/terraform.tfvars"
+BACKEND_FILE="terraform/backend.hcl"
 REPO_DIR="/Users/trb74/projects/alma-documentation-bookstack"
 
-# Check if terraform.tfvars exists
+# Check if files exist
 if [[ ! -f "$TFVARS_FILE" ]]; then
     echo "Error: $TFVARS_FILE not found!"
+    exit 1
+fi
+
+if [[ ! -f "$BACKEND_FILE" ]]; then
+    echo "Error: $BACKEND_FILE not found!"
     exit 1
 fi
 
@@ -55,6 +61,17 @@ get_secret_name() {
     esac
 }
 
+# Function to map backend.hcl keys to GitHub secret names
+get_backend_secret_name() {
+    case "$1" in
+        "resource_group_name") echo "TF_STATE_RG" ;;
+        "storage_account_name") echo "TF_STATE_SA" ;;
+        "container_name") echo "TF_STATE_CONTAINER" ;;
+        "key") echo "TF_STATE_KEY" ;;
+        *) echo "" ;;
+    esac
+}
+
 # Parse terraform.tfvars and create secrets
 while IFS= read -r line; do
     # Skip comments and empty lines
@@ -82,6 +99,37 @@ while IFS= read -r line; do
     fi
 done < "$TFVARS_FILE"
 
+echo ""
+echo "Processing backend.hcl..."
+
+# Parse backend.hcl and create secrets
+while IFS= read -r line; do
+    # Skip comments and empty lines
+    if [[ $line =~ ^[[:space:]]*# ]] || [[ -z "${line// }" ]]; then
+        continue
+    fi
+    
+    # Extract key and value (backend.hcl format: key = "value")
+    if [[ $line =~ ^[[:space:]]*([^=]+)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
+        var_name="${BASH_REMATCH[1]// /}"  # Remove spaces
+        var_value="${BASH_REMATCH[2]}"
+        
+        # Remove quotes from value
+        # shellcheck disable=SC2001
+        var_value=$(echo "$var_value" | sed 's/^[[:space:]]*"\(.*\)"[[:space:]]*$/\1/')
+        
+        # Check if this variable should be synced to GitHub
+        secret_name=$(get_backend_secret_name "$var_name")
+        if [[ -n "$secret_name" ]]; then
+            echo "Setting backend secret: $secret_name"
+            echo "$var_value" | gh secret set "$secret_name"
+        else
+            echo "Skipping unknown backend variable: $var_name"
+        fi
+    fi
+done < "$BACKEND_FILE"
+
+echo ""
 echo "Done! All secrets have been synced to GitHub."
 echo ""
 echo "You can verify by running: gh secret list"
