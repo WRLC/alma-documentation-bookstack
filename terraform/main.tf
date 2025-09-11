@@ -165,6 +165,18 @@ resource "azurerm_linux_web_app" "main" {
     "hidden-link: /app-insights-resource-id" = "/subscriptions/c6b4ce21-1b32-4550-906b-5ab71cdc6337/resourceGroups/defaultresourcegroup-eus2/providers/microsoft.insights/components/alma-documentation-bookstack-insights"
   }
 
+  logs {
+    detailed_error_messages = false
+    failed_request_tracing  = false
+
+    http_logs {
+      file_system {
+        retention_in_days = 30
+        retention_in_mb   = 35
+      }
+    }
+  }
+
   app_settings = {
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
     "APP_KEY"                               = var.bookstack_app_key
@@ -182,7 +194,7 @@ resource "azurerm_linux_web_app" "main" {
     "MAIL_PASSWORD"                         = var.smtp_password
     "MAIL_ENCRYPTION"                       = "tls"
     "STORAGE_TYPE"                          = "local_secure"
-    "STORAGE_URL"                           = "/uploads"
+    "STORAGE_URL"                           = ""
     "FILE_UPLOAD_SIZE_LIMIT"                = 256
     "ALLOWED_IFRAME_SOURCES"                = var.allowed_iframe_source
     "WEBSITE_RUN_FROM_PACKAGE"              = "1"
@@ -227,6 +239,18 @@ resource "azurerm_linux_web_app_slot" "stage" {
     "hidden-link: /app-insights-resource-id" = "/subscriptions/c6b4ce21-1b32-4550-906b-5ab71cdc6337/resourceGroups/defaultresourcegroup-eus2/providers/microsoft.insights/components/alma-documentation-bookstack-insights"
   }
 
+  logs {
+    detailed_error_messages = false
+    failed_request_tracing  = false
+
+    http_logs {
+      file_system {
+        retention_in_days = 30
+        retention_in_mb   = 35
+      }
+    }
+  }
+
   app_settings = {
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
     "APP_KEY"                               = var.bookstack_app_key
@@ -244,7 +268,7 @@ resource "azurerm_linux_web_app_slot" "stage" {
     "MAIL_PASSWORD"                         = var.smtp_password
     "MAIL_ENCRYPTION"                       = "tls"
     "STORAGE_TYPE"                          = "local_secure"
-    "STORAGE_URL"                           = "/uploads"
+    "STORAGE_URL"                           = ""
     "FILE_UPLOAD_SIZE_LIMIT"                = 256
     "ALLOWED_IFRAME_SOURCES"                = var.allowed_iframe_source
     "WEBSITE_RUN_FROM_PACKAGE"              = "1"
