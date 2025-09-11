@@ -25,7 +25,7 @@ updates:
       include: "scope"
 
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directory: "/.github/workflows"
     schedule:
       interval: "weekly"
       day: "monday"
