@@ -121,7 +121,7 @@ jobs:
           zip -r ${{ env.APP_SERVICE_NAME }}.zip BookStack/ startup.sh nginx.conf
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ env.APP_SERVICE_NAME }}
           path: ${{ env.APP_SERVICE_NAME }}.zip
