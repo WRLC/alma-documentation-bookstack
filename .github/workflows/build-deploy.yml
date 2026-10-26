@@ -28,6 +28,10 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
+          fetch-depth: 0
+
+      - name: Fetch BookStack tags
+        run: git -C BookStack fetch --force --tags origin
 
       - name: Verify BookStack version
         run: |
