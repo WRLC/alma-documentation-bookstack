@@ -1,124 +1,106 @@
+
 #file: noinspection UndefinedAction,UndefinedParamsPresent
-name: Build and Deploy
+name: Build and Deploy BookStack
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
 
 env:
-  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-  ARM_USE_OIDC: true
-  TF_VAR_azure_service_plan_name: ${{ secrets.AZURE_SERVICE_PLAN_NAME }}
-  TF_VAR_azure_service_plan_rg_name: ${{ secrets.AZURE_SERVICE_PLAN_RG_NAME }}
-  TF_VAR_azure_mysql_flexible_server_name: ${{ secrets.AZURE_MYSQL_FLEXIBLE_SERVER_NAME }}
-  TF_VAR_azure_mysql_flexible_server_rg_name: ${{ secrets.AZURE_MYSQL_FLEXIBLE_SERVER_RG_NAME }}
-  TF_VAR_azure_log_analytics_workspace_name: ${{ secrets.AZURE_LOG_ANALYTICS_WORKSPACE_NAME }}
-  TF_VAR_azure_log_analytics_workspace_rg_name: ${{ secrets.AZURE_LOG_ANALYTICS_WORKSPACE_RG_NAME }}
-  TF_VAR_mysql_admin_username: ${{ secrets.MYSQL_ADMIN_USERNAME }}
-  TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
-  TF_VAR_bookstack_app_key: ${{ secrets.BOOKSTACK_APP_KEY }}
-  TF_VAR_smtp_username: ${{ secrets.SMTP_USERNAME }}
-  TF_VAR_smtp_password: ${{ secrets.SMTP_PASSWORD }}
-  TF_VAR_mail_from: ${{ secrets.MAIL_FROM }}
-  TF_VAR_mail_from_name: ${{ secrets.MAIL_FROM_NAME }}
-  TF_VAR_allowed_iframe_source: ${{ secrets.ALLOWED_IFRAME_SOURCE }}
-  TF_VAR_app_url: ${{ secrets.APP_URL }}
-  TF_VAR_stage_app_url: ${{ secrets.STAGE_APP_URL }}
-  TF_WORKING_DIR: ./terraform
+  # Existing Azure resources
+  APP_SERVICE_NAME: alma-documentation-bookstack
+  DEPLOY_SLOT_NAME: stage
+  PHP_VERSION: '8.4'
 
 jobs:
-  terraform:
-    name: Terraform
-    runs-on: ubuntu-latest
-    outputs:
-      app_service_name: ${{ steps.get_outputs.outputs.app_service_name }}
-      app_deploy_slot_name: ${{ steps.get_outputs.outputs.app_deploy_slot_name }}
-      app_php_version: ${{ steps.get_outputs.outputs.app_php_version }}
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v5
-
-      - name: Log in to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ env.ARM_CLIENT_ID }}
-          tenant-id: ${{ env.ARM_TENANT_ID }}
-          subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_wrapper: false
-
-      - name: Terraform Init
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
-            -backend-config="storage_account_name=${{ secrets.TF_STATE_SA }}" \
-            -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${{ secrets.TF_STATE_KEY }}"
-
-      - name: Terraform Apply
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -auto-approve
-
-      - name: Get Terraform Outputs
-        id: get_outputs
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: |
-          APP_SERVICE_NAME=$(terraform output -raw app_service_name)
-          DEPLOY_SLOT_NAME=$(terraform output -raw app_deploy_slot_name)
-          PHP_VERSION=$(terraform output -raw app_php_version)
-          
-          echo "app_service_name=$APP_SERVICE_NAME" >> "$GITHUB_OUTPUT"
-          echo "app_deploy_slot_name=$DEPLOY_SLOT_NAME" >> "$GITHUB_OUTPUT"
-          echo "app_php_version=$PHP_VERSION" >> "$GITHUB_OUTPUT"
-
   build:
-    name: Build Application
+    name: Build BookStack
     runs-on: ubuntu-latest
-    needs: terraform
-    env:
-      PHP_VERSION: ${{ needs.terraform.outputs.app_php_version }}
-      APP_SERVICE_NAME: ${{ needs.terraform.outputs.app_service_name }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
           submodules: recursive
 
+      - name: Verify BookStack version
+        run: |
+          echo "BookStack commit:"
+          git -C BookStack rev-parse HEAD
+
+          echo "BookStack version:"
+          git -C BookStack describe --tags --exact-match
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, xml, ctype, json, tokenizer, openssl, pdo, mysql, gd
+          extensions: curl, dom, fileinfo, gd, mbstring, xml, zip, pdo_mysql
+          tools: composer:v2
           coverage: none
+
+      - name: Verify PHP environment
+        run: |
+          php --version
+          composer --version
+
+          # shellcheck disable=SC2016
+          php -r '
+            $required = [
+              "curl",
+              "dom",
+              "fileinfo",
+              "gd",
+              "mbstring",
+              "xml",
+              "zip",
+              "pdo_mysql"
+            ];
+
+            foreach ($required as $extension) {
+              if (!extension_loaded($extension)) {
+                fwrite(STDERR, "Missing PHP extension: $extension\n");
+                exit(1);
+              }
+            }
+
+            echo "All required PHP extensions are available.\n";
+          '
 
       - name: Cache Composer dependencies
         uses: actions/cache@v4
         with:
           path: BookStack/vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('BookStack/composer.lock') }}
+          key: ${{ runner.os }}-php-${{ env.PHP_VERSION }}-composer-${{ hashFiles('BookStack/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-composer-
+            ${{ runner.os }}-php-${{ env.PHP_VERSION }}-composer-
 
       - name: Install Composer dependencies
+        working-directory: BookStack
         run: |
-          cd BookStack
-          composer install --optimize-autoloader --no-dev
+          composer install \
+            --no-interaction \
+            --prefer-dist \
+            --optimize-autoloader \
+            --no-dev
+
+      - name: Verify Composer platform requirements
+        working-directory: BookStack
+        run: |
+          composer check-platform-reqs --no-dev
 
       - name: Create deployment artifact
         run: |
-          zip -r ${{ env.APP_SERVICE_NAME }}.zip BookStack/ startup.sh nginx.conf
+          zip -r "${APP_SERVICE_NAME}.zip" \
+            BookStack/ \
+            startup.sh \
+            nginx.conf
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -126,17 +108,16 @@ jobs:
           name: ${{ env.APP_SERVICE_NAME }}
           path: ${{ env.APP_SERVICE_NAME }}.zip
           retention-days: 7
+          if-no-files-found: error
 
   deploy:
-    name: Deploy to Azure Stage
+    name: Deploy BookStack to Azure Staging
     runs-on: ubuntu-latest
-    needs: [terraform, build]
+    needs: build
+
     if: github.ref == 'refs/heads/main'
     environment: staging
-    env:
-      APP_SERVICE_NAME: ${{ needs.terraform.outputs.app_service_name }}
-      DEPLOY_SLOT_NAME: ${{ needs.terraform.outputs.app_deploy_slot_name }}
-    
+
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v5
@@ -146,15 +127,15 @@ jobs:
 
       - name: Extract deployment package
         run: |
-          unzip -q ${{ env.APP_SERVICE_NAME }}.zip
-          rm ${{ env.APP_SERVICE_NAME }}.zip
+          unzip -q "${APP_SERVICE_NAME}.zip"
+          rm "${APP_SERVICE_NAME}.zip"
 
       - name: Azure Login
         uses: azure/login@v2
         with:
-          client-id: ${{ env.ARM_CLIENT_ID }}
-          tenant-id: ${{ env.ARM_TENANT_ID }}
-          subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.ARM_CLIENT_ID }}
+          tenant-id: ${{ secrets.ARM_TENANT_ID }}
+          subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
 
       - name: Deploy to Azure App Service Staging
         uses: azure/webapps-deploy@v3
